@@ -1,0 +1,28 @@
+Index: linux-3.4.11/net/core/blog.c
+===================================================================
+--- linux-3.4.11.orig/net/core/blog.c	2020-07-21 18:41:47.913575894 +0800
++++ linux-3.4.11/net/core/blog.c	2020-08-18 17:48:24.002528108 +0800
+@@ -166,7 +166,11 @@
+ /*
+  * blog_support_accel_mode_g inherits the default value from CC_BLOG_SUPPORT_ACCEL_MODE
+  */
++#if defined(CONFIG_BCM963268)
+ int blog_support_accel_mode_g = CC_BLOG_SUPPORT_ACCEL_MODE;
++#else
++int blog_support_accel_mode_g = BLOG_ACCEL_MODE_L23;
++#endif
+ 
+ /*
+  * blog_support_get_accel_mode_g returns the current accel mode
+@@ -3626,7 +3630,11 @@
+ 
+ int blog_dbg = 0;
+ 
++#if defined(CONFIG_BCM963268)
+ int blog_support_accel_mode_g = BLOG_ACCEL_MODE_L3; /* = CC_BLOG_SUPPORT_ACCEL_MODE; */
++#else
++int blog_support_accel_mode_g = BLOG_ACCEL_MODE_L23; /* = CC_BLOG_SUPPORT_ACCEL_MODE; */
++#endif
+ void blog_support_accel_mode(int accel_mode) {blog_support_accel_mode_g = BLOG_ACCEL_MODE_L3;}
+ int blog_support_get_accel_mode(void) {return blog_support_accel_mode_g;}
+ 

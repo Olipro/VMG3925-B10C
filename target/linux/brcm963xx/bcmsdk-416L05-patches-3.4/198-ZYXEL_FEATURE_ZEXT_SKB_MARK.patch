@@ -1,0 +1,1146 @@
+Index: linux-3.4.11/include/linux/fib_rules.h
+===================================================================
+--- linux-3.4.11.orig/include/linux/fib_rules.h	2012-09-15 06:18:55.000000000 +0800
++++ linux-3.4.11/include/linux/fib_rules.h	2017-01-18 12:01:32.744808102 +0800
+@@ -49,6 +49,10 @@
+ 	FRA_TABLE,	/* Extended table id */
+ 	FRA_FWMASK,	/* mask for netfilter mark */
+ 	FRA_OIFNAME,
++#ifdef CONFIG_SBG_SKB_MARK
++	FRA_ZEXTMARK,	/* zextmark */
++	FRA_ZEXTMASK,	/* mask for netfilter zextmark */
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	__FRA_MAX
+ };
+ 
+Index: linux-3.4.11/include/net/fib_rules.h
+===================================================================
+--- linux-3.4.11.orig/include/net/fib_rules.h	2012-09-15 06:18:55.000000000 +0800
++++ linux-3.4.11/include/net/fib_rules.h	2017-01-18 14:10:53.406156133 +0800
+@@ -15,6 +15,10 @@
+ 	int			oifindex;
+ 	u32			mark;
+ 	u32			mark_mask;
++#ifdef CONFIG_SBG_SKB_MARK
++	u32			zextmark;
++	u32			zextmark_mask;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	u32			pref;
+ 	u32			flags;
+ 	u32			table;
+@@ -72,15 +76,30 @@
+ 	struct rcu_head		rcu;
+ };
+ 
++#ifdef CONFIG_SBG_SKB_MARK
+ #define FRA_GENERIC_POLICY \
+ 	[FRA_IIFNAME]	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 }, \
+ 	[FRA_OIFNAME]	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 }, \
+ 	[FRA_PRIORITY]	= { .type = NLA_U32 }, \
+ 	[FRA_FWMARK]	= { .type = NLA_U32 }, \
+ 	[FRA_FWMASK]	= { .type = NLA_U32 }, \
++	[FRA_ZEXTMARK]	= { .type = NLA_U32 }, \
++	[FRA_ZEXTMASK]	= { .type = NLA_U32 }, \
+ 	[FRA_TABLE]     = { .type = NLA_U32 }, \
+ 	[FRA_GOTO]	= { .type = NLA_U32 }
+ 
++#else
++
++#define FRA_GENERIC_POLICY \
++	[FRA_IIFNAME]	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 }, \
++	[FRA_OIFNAME]	= { .type = NLA_STRING, .len = IFNAMSIZ - 1 }, \
++	[FRA_PRIORITY]	= { .type = NLA_U32 }, \
++	[FRA_FWMARK]	= { .type = NLA_U32 }, \
++	[FRA_FWMASK]	= { .type = NLA_U32 }, \
++	[FRA_TABLE]     = { .type = NLA_U32 }, \
++	[FRA_GOTO]	= { .type = NLA_U32 }
++#endif /* CONFIG_SBG_SKB_MARK */
++
+ static inline void fib_rule_get(struct fib_rule *rule)
+ {
+ 	atomic_inc(&rule->refcnt);
+Index: linux-3.4.11/include/net/ip_fib.h
+===================================================================
+--- linux-3.4.11.orig/include/net/ip_fib.h	2017-01-26 10:46:46.391649466 +0800
++++ linux-3.4.11/include/net/ip_fib.h	2017-01-26 11:52:26.768174441 +0800
+@@ -125,6 +125,9 @@
+ struct fib_result_nl {
+ 	__be32		fl_addr;   /* To be looked up*/
+ 	u32		fl_mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	u32		fl_zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	unsigned char	fl_tos;
+ 	unsigned char   fl_scope;
+ 	unsigned char   tb_id_in;
+Index: linux-3.4.11/include/net/flow.h
+===================================================================
+--- linux-3.4.11.orig/include/net/flow.h	2012-09-15 06:18:55.000000000 +0800
++++ linux-3.4.11/include/net/flow.h	2017-01-25 20:35:24.924668810 +0800
+@@ -15,6 +15,9 @@
+ 	int	flowic_oif;
+ 	int	flowic_iif;
+ 	__u32	flowic_mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	__u32	flowic_zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	__u8	flowic_tos;
+ 	__u8	flowic_scope;
+ 	__u8	flowic_proto;
+@@ -54,6 +57,9 @@
+ #define flowi4_oif		__fl_common.flowic_oif
+ #define flowi4_iif		__fl_common.flowic_iif
+ #define flowi4_mark		__fl_common.flowic_mark
++#ifdef CONFIG_SBG_SKB_MARK
++#define flowi4_zextmark		__fl_common.flowic_zextmark
++#endif /* CONFIG_SBG_SKB_MARK */
+ #define flowi4_tos		__fl_common.flowic_tos
+ #define flowi4_scope		__fl_common.flowic_scope
+ #define flowi4_proto		__fl_common.flowic_proto
+@@ -83,6 +89,9 @@
+ 	fl4->flowi4_oif = oif;
+ 	fl4->flowi4_iif = 0;
+ 	fl4->flowi4_mark = mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	fl4->flowi4_zextmark = mark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	fl4->flowi4_tos = tos;
+ 	fl4->flowi4_scope = scope;
+ 	fl4->flowi4_proto = proto;
+@@ -110,6 +119,9 @@
+ #define flowi6_oif		__fl_common.flowic_oif
+ #define flowi6_iif		__fl_common.flowic_iif
+ #define flowi6_mark		__fl_common.flowic_mark
++#ifdef CONFIG_SBG_SKB_MARK
++#define flowi6_zextmark		__fl_common.flowic_zextmark
++#endif /* CONFIG_SBG_SKB_MARK */
+ #define flowi6_tos		__fl_common.flowic_tos
+ #define flowi6_scope		__fl_common.flowic_scope
+ #define flowi6_proto		__fl_common.flowic_proto
+@@ -133,6 +145,9 @@
+ #define flowidn_oif		__fl_common.flowic_oif
+ #define flowidn_iif		__fl_common.flowic_iif
+ #define flowidn_mark		__fl_common.flowic_mark
++#ifdef CONFIG_SBG_SKB_MARK
++#define flowidn_zextmark		__fl_common.flowic_zextmark
++#endif /* CONFIG_SBG_SKB_MARK */
+ #define flowidn_scope		__fl_common.flowic_scope
+ #define flowidn_proto		__fl_common.flowic_proto
+ #define flowidn_flags		__fl_common.flowic_flags
+@@ -153,6 +168,9 @@
+ #define flowi_oif	u.__fl_common.flowic_oif
+ #define flowi_iif	u.__fl_common.flowic_iif
+ #define flowi_mark	u.__fl_common.flowic_mark
++#ifdef CONFIG_SBG_SKB_MARK
++#define flowi_zextmark	u.__fl_common.flowic_zextmark
++#endif /* CONFIG_SBG_SKB_MARK */
+ #define flowi_tos	u.__fl_common.flowic_tos
+ #define flowi_scope	u.__fl_common.flowic_scope
+ #define flowi_proto	u.__fl_common.flowic_proto
+Index: linux-3.4.11/include/net/route.h
+===================================================================
+--- linux-3.4.11.orig/include/net/route.h	2017-01-25 10:36:17.443940431 +0800
++++ linux-3.4.11/include/net/route.h	2017-01-25 20:46:01.123314758 +0800
+@@ -60,6 +60,9 @@
+ 	int			rt_iif;
+ 	int			rt_oif;
+ 	__u32			rt_mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	__u32			rt_zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 
+ 	/* Info on neighbour */
+ 	__be32			rt_gateway;
+Index: linux-3.4.11/include/linux/rtnetlink.h
+===================================================================
+--- linux-3.4.11.orig/include/linux/rtnetlink.h	2017-01-25 21:04:13.591177033 +0800
++++ linux-3.4.11/include/linux/rtnetlink.h	2017-01-26 09:35:06.504429890 +0800
+@@ -283,6 +283,9 @@
+ 	RTA_MP_ALGO, /* no longer used */
+ 	RTA_TABLE,
+ 	RTA_MARK,
++#ifdef CONFIG_SBG_SKB_MARK
++	RTA_ZEXTMARK,
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	__RTA_MAX
+ };
+ 
+Index: linux-3.4.11/include/net/xfrm.h
+===================================================================
+--- linux-3.4.11.orig/include/net/xfrm.h	2017-01-25 21:04:11.431208673 +0800
++++ linux-3.4.11/include/net/xfrm.h	2017-01-26 10:21:56.520142185 +0800
+@@ -144,6 +144,9 @@
+ 	struct xfrm_id		id;
+ 	struct xfrm_selector	sel;
+ 	struct xfrm_mark	mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	struct xfrm_mark	zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	u32			tfcpad;
+ 
+ 	u32			genid;
+@@ -514,6 +517,9 @@
+ 	u32			priority;
+ 	u32			index;
+ 	struct xfrm_mark	mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	struct xfrm_mark	zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	struct xfrm_selector	selector;
+ 	struct xfrm_lifetime_cfg lft;
+ 	struct xfrm_lifetime_cur curlft;
+Index: linux-3.4.11/include/linux/netfilter_bridge/ebt_mark_m.h
+===================================================================
+--- linux-3.4.11.orig/include/linux/netfilter_bridge/ebt_mark_m.h	2012-09-15 06:18:55.000000000 +0800
++++ linux-3.4.11/include/linux/netfilter_bridge/ebt_mark_m.h	2017-02-02 15:55:53.036560597 +0800
+@@ -12,5 +12,8 @@
+ 	__u8 bitmask;
+ };
+ #define EBT_MARK_MATCH "mark_m"
++#ifdef CONFIG_SBG_SKB_MARK
++#define EBT_ZEXTMARK_MATCH "zextmark_m"
++#endif /* CONFIG_SBG_SKB_MARK */
+ 
+ #endif
+Index: linux-3.4.11/include/linux/netfilter_bridge/ebt_mark_t.h
+===================================================================
+--- linux-3.4.11.orig/include/linux/netfilter_bridge/ebt_mark_t.h	2017-02-01 16:19:27.043275149 +0800
++++ linux-3.4.11/include/linux/netfilter_bridge/ebt_mark_t.h	2017-02-02 15:57:25.967215658 +0800
+@@ -23,5 +23,8 @@
+ 	int target;
+ };
+ #define EBT_MARK_TARGET "mark"
++#ifdef CONFIG_SBG_SKB_MARK
++#define EBT_ZEXTMARK_TARGET "zextmark"
++#endif /* CONFIG_SBG_SKB_MARK */
+ 
+ #endif
+Index: linux-3.4.11/net/netfilter/Makefile
+===================================================================
+--- linux-3.4.11.orig/net/netfilter/Makefile	2017-01-16 16:21:56.124950310 +0800
++++ linux-3.4.11/net/netfilter/Makefile	2017-01-16 21:21:11.748727970 +0800
+@@ -147,6 +147,7 @@
+ ifdef BCM_KF # defined(CONFIG_BCM_KF_NETFILTER)
+ obj-$(CONFIG_NETFILTER_XT_MATCH_LAYER7) += xt_layer7.o
+ endif #BCM_KF # defined(CONFIG_BCM_KF_NETFILTER)
++obj-$(CONFIG_NETFILTER_XT_MATCH_ZEXTMARK) += xt_zextmark.o
+ 
+ # ipset
+ obj-$(CONFIG_IP_SET) += ipset/
+Index: linux-3.4.11/net/bridge/netfilter/Kconfig
+===================================================================
+--- linux-3.4.11.orig/net/bridge/netfilter/Kconfig	2017-01-18 19:09:55.257512059 +0800
++++ linux-3.4.11/net/bridge/netfilter/Kconfig	2017-01-18 19:20:30.895704792 +0800
+@@ -108,6 +108,16 @@
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
++config BRIDGE_EBT_ZEXTMARK
++	tristate "ebt: zextmark filter support"
++	help
++	  This option adds the zextmark match, which allows matching frames based on
++	  the 'nfmark' value in the frame. This can be set by the zextmark target.
++	  This value is the same as the one used in the iptables zextmark match and
++	  target.
++
++	  To compile it as a module, choose M here.  If unsure, say N.
++
+ config BRIDGE_EBT_PKTTYPE
+ 	tristate "ebt: packet type filter support"
+ 	help
+@@ -173,6 +183,16 @@
+ 	  target.
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
++
++config BRIDGE_EBT_ZEXTMARK_T
++	tristate "ebt: zextmark target support"
++	help
++	  This option adds the zextmark target, which allows marking frames by
++	  setting the 'nfmark' value in the frame.
++	  This value is the same as the one used in the iptables zextmark match and
++	  target.
++
++	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+ config BRIDGE_EBT_REDIRECT
+ 	tristate "ebt: redirect target support"
+Index: linux-3.4.11/net/bridge/netfilter/Makefile
+===================================================================
+--- linux-3.4.11.orig/net/bridge/netfilter/Makefile	2017-01-18 19:09:55.257512059 +0800
++++ linux-3.4.11/net/bridge/netfilter/Makefile	2017-01-18 19:21:10.963086588 +0800
+@@ -19,6 +19,7 @@
+ obj-$(CONFIG_BRIDGE_EBT_IP6) += ebt_ip6.o
+ obj-$(CONFIG_BRIDGE_EBT_LIMIT) += ebt_limit.o
+ obj-$(CONFIG_BRIDGE_EBT_MARK) += ebt_mark_m.o
++obj-$(CONFIG_BRIDGE_EBT_ZEXTMARK) += ebt_zextmark_m.o
+ obj-$(CONFIG_BRIDGE_EBT_PKTTYPE) += ebt_pkttype.o
+ obj-$(CONFIG_BRIDGE_EBT_STP) += ebt_stp.o
+ obj-$(CONFIG_BRIDGE_EBT_VLAN) += ebt_vlan.o
+@@ -29,6 +30,7 @@
+ # targets
+ obj-$(CONFIG_BRIDGE_EBT_ARPREPLY) += ebt_arpreply.o
+ obj-$(CONFIG_BRIDGE_EBT_MARK_T) += ebt_mark.o
++obj-$(CONFIG_BRIDGE_EBT_ZEXTMARK_T) += ebt_zextmark.o
+ obj-$(CONFIG_BRIDGE_EBT_DNAT) += ebt_dnat.o
+ obj-$(CONFIG_BRIDGE_EBT_REDIRECT) += ebt_redirect.o
+ obj-$(CONFIG_BRIDGE_EBT_SNAT) += ebt_snat.o
+Index: linux-3.4.11/net/bridge/netfilter/ebt_zextmark.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ linux-3.4.11/net/bridge/netfilter/ebt_zextmark.c	2017-01-18 20:01:00.326220685 +0800
+@@ -0,0 +1,187 @@
++/*
++ *  ebt_mark
++ *
++ *	Authors:
++ *	Bart De Schuymer <bdschuym@pandora.be>
++ *
++ *  July, 2002
++ *
++ */
++
++/* The mark target can be used in any chain,
++ * I believe adding a mangle table just for marking is total overkill.
++ * Marking a frame doesn't really change anything in the frame anyway.
++ */
++
++#include <linux/module.h>
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter_bridge/ebtables.h>
++#include <linux/netfilter_bridge/ebt_mark_t.h>
++
++#include "zld/zld_cb_data.h"
++
++static unsigned int
++ebt_mark_tg(struct sk_buff *skb, const struct xt_action_param *par)
++{
++	const struct ebt_mark_t_info *info = par->targinfo;
++	int action = info->target & -16;
++
++	if (action == MARK_SET_VALUE)
++		ZLD_CB_DATA(skb)->zextmark = info->mark;
++	else if (action == MARK_OR_VALUE)
++		ZLD_CB_DATA(skb)->zextmark |= info->mark;
++	else if (action == MARK_AND_VALUE)
++		ZLD_CB_DATA(skb)->zextmark &= info->mark;
++#if !defined(CONFIG_BCM_KF_NETFILTER)
++	else
++		ZLD_CB_DATA(skb)->zextmark ^= info->mark;
++#else
++	else if (action == MARK_XOR_VALUE)
++		ZLD_CB_DATA(skb)->zextmark ^= info->mark;
++	else
++   {
++		skb->vtag = (unsigned short)(info->mark);
++
++      /* if the 8021p priority field (bits 0-3) of skb->vtag is not zero, we need
++       * to do p-bit marking.
++       */
++      if (skb->vtag & 0xf)
++      {
++         unsigned short TCI = 0;
++
++         /* if this is a vlan frame, we want to re-mark its p-bit with the 8021p
++          * priority in skb->vtag.
++          * if this is not a vlan frame, we want to add a 8021p tag to it, with
++          * vid=0 and p-bit=the 8021p priority in skb->vtag.
++          */
++	      if ((skb->protocol == __constant_htons(ETH_P_8021Q)))
++	      {
++   	      struct vlan_hdr *frame = (struct vlan_hdr *)(skb->network_header);
++
++		      TCI = ntohs(frame->h_vlan_TCI);
++
++            /* Since the 8021p priority value in vtag had been incremented by 1,
++             * we need to minus 1 from it to get the exact value.
++             */
++            TCI = (TCI & 0x1fff) | (((skb->vtag & 0xf) - 1) << 13);
++
++		      frame->h_vlan_TCI = htons(TCI);
++   	   }
++#if 0 /* ZyXEL QoS, change VLAM header process to vlanCtl driver instead of ebtables module, John (porting from MSTC)*/
++         else
++         {
++            if ((skb->mac_header - skb->head) < VLAN_HLEN)
++            {
++               printk("ebt_mark_tg: No headroom for VLAN tag. Marking is not done.\n");
++            }
++            else
++            {
++   	         struct vlan_ethhdr *ethHeader;
++
++               skb->protocol = __constant_htons(ETH_P_8021Q);
++               skb->mac_header -= VLAN_HLEN;
++               skb->network_header -= VLAN_HLEN;
++               skb->data -= VLAN_HLEN;
++	            skb->len  += VLAN_HLEN;
++
++               /* Move the mac addresses to the beginning of the new header. */
++               memmove(skb->mac_header, skb->mac_header + VLAN_HLEN, 2 * ETH_ALEN);
++
++               ethHeader = (struct vlan_ethhdr *)(skb->mac_header);
++
++               ethHeader->h_vlan_proto = __constant_htons(ETH_P_8021Q);
++
++               /* Since the 8021p priority value in vtag had been incremented by 1,
++                * we need to minus 1 from it to get the exact value.
++                */
++               TCI = (TCI & 0x1fff) | (((skb->vtag & 0xf) - 1) << 13);
++
++               ethHeader->h_vlan_TCI = htons(TCI);
++            }
++         }
++         skb->vtag = 0;
++#endif
++      }
++   }
++#endif // CONFIG_BCM_KF_NETFILTER
++
++	return info->target | ~EBT_VERDICT_BITS;
++}
++
++static int ebt_mark_tg_check(const struct xt_tgchk_param *par)
++{
++	const struct ebt_mark_t_info *info = par->targinfo;
++	int tmp;
++
++	tmp = info->target | ~EBT_VERDICT_BITS;
++	if (BASE_CHAIN && tmp == EBT_RETURN)
++		return -EINVAL;
++	if (tmp < -NUM_STANDARD_TARGETS || tmp >= 0)
++		return -EINVAL;
++	tmp = info->target & ~EBT_VERDICT_BITS;
++	if (tmp != MARK_SET_VALUE && tmp != MARK_OR_VALUE &&
++#if defined(CONFIG_BCM_KF_NETFILTER)
++	    tmp != MARK_AND_VALUE && tmp != MARK_XOR_VALUE &&
++            tmp != VTAG_SET_VALUE)
++#else
++	    tmp != MARK_AND_VALUE && tmp != MARK_XOR_VALUE)
++#endif
++		return -EINVAL;
++	return 0;
++}
++#ifdef CONFIG_COMPAT
++struct compat_ebt_mark_t_info {
++	compat_ulong_t mark;
++	compat_uint_t target;
++};
++
++static void mark_tg_compat_from_user(void *dst, const void *src)
++{
++	const struct compat_ebt_mark_t_info *user = src;
++	struct ebt_mark_t_info *kern = dst;
++
++	kern->mark = user->mark;
++	kern->target = user->target;
++}
++
++static int mark_tg_compat_to_user(void __user *dst, const void *src)
++{
++	struct compat_ebt_mark_t_info __user *user = dst;
++	const struct ebt_mark_t_info *kern = src;
++
++	if (put_user(kern->mark, &user->mark) ||
++	    put_user(kern->target, &user->target))
++		return -EFAULT;
++	return 0;
++}
++#endif
++
++static struct xt_target ebt_mark_tg_reg __read_mostly = {
++	.name		= "zextmark",
++	.revision	= 0,
++	.family		= NFPROTO_BRIDGE,
++	.target		= ebt_mark_tg,
++	.checkentry	= ebt_mark_tg_check,
++	.targetsize	= sizeof(struct ebt_mark_t_info),
++#ifdef CONFIG_COMPAT
++	.compatsize	= sizeof(struct compat_ebt_mark_t_info),
++	.compat_from_user = mark_tg_compat_from_user,
++	.compat_to_user	= mark_tg_compat_to_user,
++#endif
++	.me		= THIS_MODULE,
++};
++
++static int __init ebt_mark_init(void)
++{
++	return xt_register_target(&ebt_mark_tg_reg);
++}
++
++static void __exit ebt_mark_fini(void)
++{
++	xt_unregister_target(&ebt_mark_tg_reg);
++}
++
++module_init(ebt_mark_init);
++module_exit(ebt_mark_fini);
++MODULE_DESCRIPTION("Ebtables: Packet zextmark modification");
++MODULE_LICENSE("GPL");
+Index: linux-3.4.11/net/bridge/netfilter/ebt_zextmark_m.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ linux-3.4.11/net/bridge/netfilter/ebt_zextmark_m.c	2017-01-18 20:03:01.348353397 +0800
+@@ -0,0 +1,100 @@
++/*
++ *  ebt_mark_m
++ *
++ *	Authors:
++ *	Bart De Schuymer <bdschuym@pandora.be>
++ *
++ *  July, 2002
++ *
++ */
++#include <linux/module.h>
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter_bridge/ebtables.h>
++#include <linux/netfilter_bridge/ebt_mark_m.h>
++
++#include "zld/zld_cb_data.h"
++
++static bool
++ebt_mark_mt(const struct sk_buff *skb, struct xt_action_param *par)
++{
++	const struct ebt_mark_m_info *info = par->matchinfo;
++
++	if (info->bitmask & EBT_MARK_OR)
++		return !!(ZLD_CB_DATA(skb)->zextmark & info->mask) ^ info->invert;
++	return ((ZLD_CB_DATA(skb)->zextmark & info->mask) == info->mark) ^ info->invert;
++}
++
++static int ebt_mark_mt_check(const struct xt_mtchk_param *par)
++{
++	const struct ebt_mark_m_info *info = par->matchinfo;
++
++	if (info->bitmask & ~EBT_MARK_MASK)
++		return -EINVAL;
++	if ((info->bitmask & EBT_MARK_OR) && (info->bitmask & EBT_MARK_AND))
++		return -EINVAL;
++	if (!info->bitmask)
++		return -EINVAL;
++	return 0;
++}
++
++
++#ifdef CONFIG_COMPAT
++struct compat_ebt_mark_m_info {
++	compat_ulong_t mark, mask;
++	uint8_t invert, bitmask;
++};
++
++static void mark_mt_compat_from_user(void *dst, const void *src)
++{
++	const struct compat_ebt_mark_m_info *user = src;
++	struct ebt_mark_m_info *kern = dst;
++
++	kern->mark = user->mark;
++	kern->mask = user->mask;
++	kern->invert = user->invert;
++	kern->bitmask = user->bitmask;
++}
++
++static int mark_mt_compat_to_user(void __user *dst, const void *src)
++{
++	struct compat_ebt_mark_m_info __user *user = dst;
++	const struct ebt_mark_m_info *kern = src;
++
++	if (put_user(kern->mark, &user->mark) ||
++	    put_user(kern->mask, &user->mask) ||
++	    put_user(kern->invert, &user->invert) ||
++	    put_user(kern->bitmask, &user->bitmask))
++		return -EFAULT;
++	return 0;
++}
++#endif
++
++static struct xt_match ebt_mark_mt_reg __read_mostly = {
++	.name		= "zextmark_m",
++	.revision	= 0,
++	.family		= NFPROTO_BRIDGE,
++	.match		= ebt_mark_mt,
++	.checkentry	= ebt_mark_mt_check,
++	.matchsize	= sizeof(struct ebt_mark_m_info),
++#ifdef CONFIG_COMPAT
++	.compatsize	= sizeof(struct compat_ebt_mark_m_info),
++	.compat_from_user = mark_mt_compat_from_user,
++	.compat_to_user	= mark_mt_compat_to_user,
++#endif
++	.me		= THIS_MODULE,
++};
++
++static int __init ebt_mark_m_init(void)
++{
++	return xt_register_match(&ebt_mark_mt_reg);
++}
++
++static void __exit ebt_mark_m_fini(void)
++{
++	xt_unregister_match(&ebt_mark_mt_reg);
++}
++
++module_init(ebt_mark_m_init);
++module_exit(ebt_mark_m_fini);
++MODULE_DESCRIPTION("Ebtables: Packet zextmark match");
++MODULE_LICENSE("GPL");
+Index: linux-3.4.11/net/ipv4/route.c
+===================================================================
+--- linux-3.4.11.orig/net/ipv4/route.c	2017-01-26 14:29:02.653748444 +0800
++++ linux-3.4.11/net/ipv4/route.c	2017-01-26 14:32:30.758714762 +0800
+@@ -112,6 +112,10 @@
+ #endif
+ #include <net/secure_seq.h>
+ 
++#ifdef CONFIG_SBG_SKB_MARK
++#include "zld/zld_cb_data.h"
++#endif /* CONFIG_SBG_SKB_MARK */
++
+ #define RT_FL_TOS(oldflp4) \
+ 	((oldflp4)->flowi4_tos & (IPTOS_RT_MASK | RTO_ONLINK))
+ 
+@@ -738,6 +742,9 @@
+ 	return (((__force u32)rt1->rt_key_dst ^ (__force u32)rt2->rt_key_dst) |
+ 		((__force u32)rt1->rt_key_src ^ (__force u32)rt2->rt_key_src) |
+ 		(rt1->rt_mark ^ rt2->rt_mark) |
++	#ifdef CONFIG_SBG_SKB_MARK
++		(rt1->rt_zextmark ^ rt2->rt_zextmark) |
++	#endif /* CONFIG_SBG_SKB_MARK */
+ 		(rt1->rt_key_tos ^ rt2->rt_key_tos) |
+ 		(rt1->rt_route_iif ^ rt2->rt_route_iif) |
+ 		(rt1->rt_oif ^ rt2->rt_oif)) == 0;
+@@ -1880,6 +1887,9 @@
+ 		fl4.flowi4_oif = rt->dst.dev->ifindex;
+ 		fl4.flowi4_iif = skb->dev->ifindex;
+ 		fl4.flowi4_mark = skb->mark;
++	#ifdef CONFIG_SBG_SKB_MARK
++		fl4.flowi4_zextmark = ZLD_CB_DATA(skb)->zextmark;
++	#endif /* CONFIG_SBG_SKB_MARK */
+ 
+ 		rcu_read_lock();
+ 		if (fib_lookup(dev_net(rt->dst.dev), &fl4, &res) == 0)
+@@ -2063,6 +2073,9 @@
+ 	rth->rt_iif	= dev->ifindex;
+ 	rth->rt_oif	= 0;
+ 	rth->rt_mark    = skb->mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	rth->rt_zextmark    = ZLD_CB_DATA(skb)->zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	rth->rt_gateway	= daddr;
+ 	rth->rt_spec_dst= spec_dst;
+ 	rth->rt_peer_genid = 0;
+@@ -2192,6 +2205,9 @@
+ 	rth->rt_iif 	= in_dev->dev->ifindex;
+ 	rth->rt_oif 	= 0;
+ 	rth->rt_mark    = skb->mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	rth->rt_zextmark    = ZLD_CB_DATA(skb)->zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	rth->rt_gateway	= daddr;
+ 	rth->rt_spec_dst= spec_dst;
+ 	rth->rt_peer_genid = 0;
+@@ -2298,6 +2314,9 @@
+ 	fl4.flowi4_oif = 0;
+ 	fl4.flowi4_iif = dev->ifindex;
+ 	fl4.flowi4_mark = skb->mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	fl4.flowi4_zextmark = ZLD_CB_DATA(skb)->zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	fl4.flowi4_tos = tos;
+ 	fl4.flowi4_scope = RT_SCOPE_UNIVERSE;
+ 	fl4.daddr = daddr;
+@@ -2379,6 +2398,9 @@
+ 	rth->rt_iif	= dev->ifindex;
+ 	rth->rt_oif	= 0;
+ 	rth->rt_mark    = skb->mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	rth->rt_zextmark    = ZLD_CB_DATA(skb)->zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	rth->rt_gateway	= daddr;
+ 	rth->rt_spec_dst= spec_dst;
+ 	rth->rt_peer_genid = 0;
+@@ -2460,6 +2482,9 @@
+ 		     (rth->rt_route_iif ^ iif) |
+ 		     (rth->rt_key_tos ^ tos)) == 0 &&
+ 		    rth->rt_mark == skb->mark &&
++		#ifdef CONFIG_SBG_SKB_MARK
++		    rth->rt_zextmark == ZLD_CB_DATA(skb)->zextmark &&
++		#endif /* CONFIG_SBG_SKB_MARK */
+ 		    net_eq(dev_net(rth->dst.dev), net) &&
+ 		    !rt_is_expired(rth)) {
+ 			ipv4_validate_peer(rth);
+@@ -2588,6 +2613,9 @@
+ 	rth->rt_iif	= orig_oif ? : dev_out->ifindex;
+ 	rth->rt_oif	= orig_oif;
+ 	rth->rt_mark    = fl4->flowi4_mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	rth->rt_zextmark    = fl4->flowi4_zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	rth->rt_gateway = fl4->daddr;
+ 	rth->rt_spec_dst= fl4->saddr;
+ 	rth->rt_peer_genid = 0;
+@@ -2843,6 +2871,9 @@
+ 		    rt_is_output_route(rth) &&
+ 		    rth->rt_oif == flp4->flowi4_oif &&
+ 		    rth->rt_mark == flp4->flowi4_mark &&
++		#ifdef CONFIG_SBG_SKB_MARK
++		    rth->rt_zextmark == flp4->flowi4_zextmark &&
++		#endif /* CONFIG_SBG_SKB_MARK */
+ 		    !((rth->rt_key_tos ^ flp4->flowi4_tos) &
+ 			    (IPTOS_RT_MASK | RTO_ONLINK)) &&
+ 		    net_eq(dev_net(rth->dst.dev), net) &&
+@@ -2924,6 +2955,9 @@
+ 		rt->rt_iif = ort->rt_iif;
+ 		rt->rt_oif = ort->rt_oif;
+ 		rt->rt_mark = ort->rt_mark;
++	#ifdef CONFIG_SBG_SKB_MARK
++		rt->rt_zextmark = ort->rt_zextmark;
++	#endif /* CONFIG_SBG_SKB_MARK */
+ 
+ 		rt->rt_genid = rt_genid(net);
+ 		rt->rt_flags = ort->rt_flags;
+@@ -3019,6 +3053,11 @@
+ 	if (rt->rt_mark)
+ 		NLA_PUT_BE32(skb, RTA_MARK, rt->rt_mark);
+ 
++#ifdef CONFIG_SBG_SKB_MARK
++	if (rt->rt_zextmark)
++		NLA_PUT_BE32(skb, RTA_ZEXTMARK, rt->rt_zextmark);
++#endif /*  CONFIG_SBG_SKB_MARK */
++
+ 	error = rt->dst.error;
+ 	if (peer) {
+ 		inet_peer_refcheck(rt->peer);
+@@ -3089,6 +3128,9 @@
+ 	u32 iif;
+ 	int err;
+ 	int mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	int zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	struct sk_buff *skb;
+ 
+ 	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_ipv4_policy);
+@@ -3117,6 +3159,9 @@
+ 	dst = tb[RTA_DST] ? nla_get_be32(tb[RTA_DST]) : 0;
+ 	iif = tb[RTA_IIF] ? nla_get_u32(tb[RTA_IIF]) : 0;
+ 	mark = tb[RTA_MARK] ? nla_get_u32(tb[RTA_MARK]) : 0;
++#ifdef CONFIG_SBG_SKB_MARK
++	zextmark = tb[RTA_ZEXTMARK] ? nla_get_u32(tb[RTA_ZEXTMARK]) : 0;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 
+ 	if (iif) {
+ 		struct net_device *dev;
+@@ -3144,6 +3189,9 @@
+ 			.flowi4_tos = rtm->rtm_tos,
+ 			.flowi4_oif = tb[RTA_OIF] ? nla_get_u32(tb[RTA_OIF]) : 0,
+ 			.flowi4_mark = mark,
++		#ifdef CONFIG_SBG_SKB_MARK
++			.flowi4_zextmark = zextmark,
++		#endif /* CONFIG_SBG_SKB_MARK */
+ 		};
+ 		rt = ip_route_output_key(net, &fl4);
+ 
+Index: linux-3.4.11/net/core/fib_rules.c
+===================================================================
+--- linux-3.4.11.orig/net/core/fib_rules.c	2012-09-15 06:18:55.000000000 +0800
++++ linux-3.4.11/net/core/fib_rules.c	2017-01-23 13:47:59.979465035 +0800
+@@ -188,6 +188,11 @@
+ 	if (rule->oifindex && (rule->oifindex != fl->flowi_oif))
+ 		goto out;
+ 
++#ifdef CONFIG_SBG_SKB_MARK
++	if ((rule->zextmark ^ fl->flowi_zextmark) & rule->zextmark_mask)
++		goto out;
++#endif /* CONFIG_SBG_SKB_MARK */
++
+ 	if ((rule->mark ^ fl->flowi_mark) & rule->mark_mask)
+ 		goto out;
+ 
+@@ -332,6 +337,20 @@
+ 	if (tb[FRA_FWMASK])
+ 		rule->mark_mask = nla_get_u32(tb[FRA_FWMASK]);
+ 
++#ifdef CONFIG_SBG_SKB_MARK
++	if (tb[FRA_ZEXTMARK]) {
++		rule->zextmark = nla_get_u32(tb[FRA_ZEXTMARK]);
++		if (rule->zextmark)
++			/* compatibility: if the mark value is non-zero all bits
++			 * are compared unless a mask is explicitly specified.
++			 */
++			rule->zextmark_mask = 0xFFFFFFFF;
++	}
++
++	if (tb[FRA_ZEXTMASK])
++		rule->zextmark_mask = nla_get_u32(tb[FRA_ZEXTMASK]);
++#endif /* CONFIG_SBG_SKB_MARK */
++
+ 	rule->action = frh->action;
+ 	rule->flags = frh->flags;
+ 	rule->table = frh_get_table(frh, tb);
+@@ -466,6 +485,16 @@
+ 		    (rule->mark_mask != nla_get_u32(tb[FRA_FWMASK])))
+ 			continue;
+ 
++#ifdef CONFIG_SBG_SKB_MARK
++		if (tb[FRA_ZEXTMARK] &&
++		    (rule->zextmark != nla_get_u32(tb[FRA_ZEXTMARK])))
++			continue;
++
++		if (tb[FRA_ZEXTMASK] &&
++		    (rule->zextmark_mask != nla_get_u32(tb[FRA_ZEXTMASK])))
++			continue;
++#endif /* CONFIG_SBG_SKB_MARK */
++
+ 		if (!ops->compare(rule, frh, tb))
+ 			continue;
+ 
+@@ -519,6 +548,10 @@
+ 			 + nla_total_size(IFNAMSIZ) /* FRA_OIFNAME */
+ 			 + nla_total_size(4) /* FRA_PRIORITY */
+ 			 + nla_total_size(4) /* FRA_TABLE */
++		#ifdef CONFIG_SBG_SKB_MARK
++			 + nla_total_size(4) /* FRA_ZEXTMARK */
++			 + nla_total_size(4) /* FRA_ZEXTMASK */
++		#endif /* CONFIG_SBG_SKB_MARK */
+ 			 + nla_total_size(4) /* FRA_FWMARK */
+ 			 + nla_total_size(4); /* FRA_FWMASK */
+ 
+@@ -575,6 +608,14 @@
+ 	if (rule->mark_mask || rule->mark)
+ 		NLA_PUT_U32(skb, FRA_FWMASK, rule->mark_mask);
+ 
++#ifdef CONFIG_SBG_SKB_MARK
++	if (rule->zextmark)
++		NLA_PUT_U32(skb, FRA_ZEXTMARK, rule->zextmark);
++
++	if (rule->zextmark_mask || rule->zextmark)
++		NLA_PUT_U32(skb, FRA_ZEXTMASK, rule->zextmark_mask);
++#endif /* CONFIG_SBG_SKB_MARK */
++
+ 	if (rule->target)
+ 		NLA_PUT_U32(skb, FRA_GOTO, rule->target);
+ 
+Index: linux-3.4.11/net/ipv4/fib_frontend.c
+===================================================================
+--- linux-3.4.11.orig/net/ipv4/fib_frontend.c	2017-01-25 21:04:13.591177033 +0800
++++ linux-3.4.11/net/ipv4/fib_frontend.c	2017-01-26 09:57:19.804828049 +0800
+@@ -45,6 +45,10 @@
+ #include <net/rtnetlink.h>
+ #include <net/xfrm.h>
+ 
++#ifdef CONFIG_SBG_SKB_MARK
++#include "zld/zld_cb_data.h"
++#endif /* CONFIG_SBG_SKB_MARK */
++
+ #ifndef CONFIG_IP_MULTIPLE_TABLES
+ 
+ static int __net_init fib4_rules_init(struct net *net)
+@@ -223,6 +227,9 @@
+ #endif
+ 		accept_local = IN_DEV_ACCEPT_LOCAL(in_dev);
+ 		fl4.flowi4_mark = IN_DEV_SRC_VMARK(in_dev) ? skb->mark : 0;
++	#ifdef CONFIG_SBG_SKB_MARK
++		fl4.flowi4_zextmark = IN_DEV_SRC_VMARK(in_dev) ? ZLD_CB_DATA(skb)->zextmark : 0;
++	#endif /* CONFIG_SBG_SKB_MARK */
+ 	}
+ 
+ 	if (in_dev == NULL)
+@@ -885,6 +892,9 @@
+ 	struct fib_result       res;
+ 	struct flowi4           fl4 = {
+ 		.flowi4_mark = frn->fl_mark,
++	#ifdef CONFIG_SBG_SKB_MARK
++		.flowi4_zextmark = frn->fl_zextmark,
++	#endif /* CONFIG_SBG_SKB_MARK */
+ 		.daddr = frn->fl_addr,
+ 		.flowi4_tos = frn->fl_tos,
+ 		.flowi4_scope = frn->fl_scope,
+Index: linux-3.4.11/net/ipv4/ipmr.c
+===================================================================
+--- linux-3.4.11.orig/net/ipv4/ipmr.c	2017-01-25 21:04:12.575191915 +0800
++++ linux-3.4.11/net/ipv4/ipmr.c	2017-01-26 09:46:34.078127982 +0800
+@@ -464,6 +464,9 @@
+ 		.flowi4_oif	= dev->ifindex,
+ 		.flowi4_iif	= skb->skb_iif,
+ 		.flowi4_mark	= skb->mark,
++	#ifdef CONFIG_SBG_SKB_MARK
++		.flowi4_zextmark	= ZLD_CB_DATA(skb)->zextmark,
++	#endif /* CONFIG_SBG_SKB_MARK */
+ 	};
+ 	int err;
+ 
+@@ -1878,6 +1881,9 @@
+ 		.flowi4_oif = rt->rt_oif,
+ 		.flowi4_iif = rt->rt_iif,
+ 		.flowi4_mark = rt->rt_mark,
++	#ifdef CONFIG_SBG_SKB_MARK
++		.flowi4_zextmark = rt->rt_zextmark,
++	#endif /* CONFIG_SBG_SKB_MARK */
+ 	};
+ 	struct mr_table *mrt;
+ 	int err;
+Index: linux-3.4.11/net/ipv4/netfilter.c
+===================================================================
+--- linux-3.4.11.orig/net/ipv4/netfilter.c	2012-09-15 06:18:55.000000000 +0800
++++ linux-3.4.11/net/ipv4/netfilter.c	2017-01-26 09:59:33.538966066 +0800
+@@ -11,6 +11,10 @@
+ #include <net/ip.h>
+ #include <net/netfilter/nf_queue.h>
+ 
++#ifdef CONFIG_SBG_SKB_MARK
++#include "zld/zld_cb_data.h"
++#endif /* CONFIG_SBG_SKB_MARK */
++
+ /* route_me_harder function, used by iptable_nat, iptable_mangle + ip_queue */
+ int ip_route_me_harder(struct sk_buff *skb, unsigned addr_type)
+ {
+@@ -37,6 +41,9 @@
+ 	fl4.flowi4_tos = RT_TOS(iph->tos);
+ 	fl4.flowi4_oif = skb->sk ? skb->sk->sk_bound_dev_if : 0;
+ 	fl4.flowi4_mark = skb->mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	fl4.flowi4_zextmark = ZLD_CB_DATA(skb)->zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	fl4.flowi4_flags = flags;
+ 	rt = ip_route_output_key(net, &fl4);
+ 	if (IS_ERR(rt))
+Index: linux-3.4.11/net/ipv4/netfilter/ipt_rpfilter.c
+===================================================================
+--- linux-3.4.11.orig/net/ipv4/netfilter/ipt_rpfilter.c	2012-09-15 06:18:55.000000000 +0800
++++ linux-3.4.11/net/ipv4/netfilter/ipt_rpfilter.c	2017-01-26 09:53:34.143964053 +0800
+@@ -92,6 +92,9 @@
+ 	flow.saddr = rpfilter_get_saddr(iph->daddr);
+ 	flow.flowi4_oif = 0;
+ 	flow.flowi4_mark = info->flags & XT_RPFILTER_VALID_MARK ? skb->mark : 0;
++#ifdef CONFIG_SBG_SKB_MARK
++	flow.flowi4_zextmark = info->flags & XT_RPFILTER_VALID_MARK ? ZLD_CB_DATA(skb)->zextmark : 0;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 	flow.flowi4_tos = RT_TOS(iph->tos);
+ 	flow.flowi4_scope = RT_SCOPE_UNIVERSE;
+ 
+Index: linux-3.4.11/net/ipv4/xfrm4_policy.c
+===================================================================
+--- linux-3.4.11.orig/net/ipv4/xfrm4_policy.c	2012-09-15 06:18:55.000000000 +0800
++++ linux-3.4.11/net/ipv4/xfrm4_policy.c	2017-01-26 10:10:24.353870647 +0800
+@@ -16,6 +16,10 @@
+ #include <net/xfrm.h>
+ #include <net/ip.h>
+ 
++#ifdef CONFIG_SBG_SKB_MARK
++#include "zld/zld_cb_data.h"
++#endif /* CONFIG_SBG_SKB_MARK */
++
+ static struct xfrm_policy_afinfo xfrm4_policy_afinfo;
+ 
+ static struct dst_entry *__xfrm4_dst_lookup(struct net *net, struct flowi4 *fl4,
+@@ -86,6 +90,9 @@
+ 	xdst->u.rt.rt_iif = fl4->flowi4_iif;
+ 	xdst->u.rt.rt_oif = fl4->flowi4_oif;
+ 	xdst->u.rt.rt_mark = fl4->flowi4_mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	xdst->u.rt.rt_zextmark = fl4->flowi4_zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 
+ 	xdst->u.dst.dev = dev;
+ 	dev_hold(dev);
+@@ -116,6 +123,9 @@
+ 
+ 	memset(fl4, 0, sizeof(struct flowi4));
+ 	fl4->flowi4_mark = skb->mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	fl4->flowi4_zextmark = ZLD_CB_DATA(skb)->zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 
+ 	if (!ip_is_fragment(iph)) {
+ 		switch (iph->protocol) {
+Index: linux-3.4.11/net/netfilter/ipvs/ip_vs_xmit.c
+===================================================================
+--- linux-3.4.11.orig/net/netfilter/ipvs/ip_vs_xmit.c	2012-09-15 06:18:55.000000000 +0800
++++ linux-3.4.11/net/netfilter/ipvs/ip_vs_xmit.c	2017-01-26 09:43:23.484981977 +0800
+@@ -187,6 +187,9 @@
+ 			.saddr = iph->saddr,
+ 			.flowi4_tos = RT_TOS(iph->tos),
+ 			.flowi4_mark = skb->mark,
++		#ifdef CONFIG_SBG_SKB_MARK
++			.flowi4_zextmark = ZLD_CB_DATA(skb)->zextmark,
++		#endif /* CONFIG_SBG_SKB_MARK */
+ 		};
+ 
+ 		rt = ip_route_output_key(net, &fl4);
+Index: linux-3.4.11/net/xfrm/xfrm_policy.c
+===================================================================
+--- linux-3.4.11.orig/net/xfrm/xfrm_policy.c	2017-01-25 21:04:11.955200998 +0800
++++ linux-3.4.11/net/xfrm/xfrm_policy.c	2017-01-26 10:41:32.859947649 +0800
+@@ -552,6 +552,9 @@
+ 	struct hlist_head *chain;
+ 	struct hlist_node *entry, *newpos;
+ 	u32 mark = policy->mark.v & policy->mark.m;
++#ifdef CONFIG_SBG_SKB_MARK
++	u32 zextmark = policy->zextmark.v & policy->zextmark.m;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 
+ 	write_lock_bh(&xfrm_policy_lock);
+ 	chain = policy_hash_bysel(net, &policy->selector, policy->family, dir);
+@@ -561,6 +564,9 @@
+ 		if (pol->type == policy->type &&
+ 		    !selector_cmp(&pol->selector, &policy->selector) &&
+ 		    (mark & pol->mark.m) == pol->mark.v &&
++		#ifdef CONFIG_SBG_SKB_MARK
++		    (zextmark & pol->zextmark.m) == pol->zextmark.v &&
++		#endif /* CONFIG_SBG_SKB_MARK */
+ 		    xfrm_sec_ctx_match(pol->security, policy->security) &&
+ 		    !WARN_ON(delpol)) {
+ 			if (excl) {
+@@ -620,6 +626,9 @@
+ 	hlist_for_each_entry(pol, entry, chain, bydst) {
+ 		if (pol->type == type &&
+ 		    (mark & pol->mark.m) == pol->mark.v &&
++		#ifdef CONFIG_SBG_SKB_MARK
++		    (mark & pol->zextmark.m) == pol->zextmark.v &&
++		#endif /* CONFIG_SBG_SKB_MARK */
+ 		    !selector_cmp(sel, &pol->selector) &&
+ 		    xfrm_sec_ctx_match(ctx, pol->security)) {
+ 			xfrm_pol_hold(pol);
+@@ -661,6 +670,9 @@
+ 	ret = NULL;
+ 	hlist_for_each_entry(pol, entry, chain, byidx) {
+ 		if (pol->type == type && pol->index == id &&
++		#ifdef CONFIG_SBG_SKB_MARK
++		    (mark & pol->zextmark.m) == pol->zextmark.v &&
++		#endif /* CONFIG_SBG_SKB_MARK */
+ 		    (mark & pol->mark.m) == pol->mark.v) {
+ 			xfrm_pol_hold(pol);
+ 			if (delete) {
+@@ -881,6 +893,9 @@
+ 
+ 	if (pol->family != family ||
+ 	    (fl->flowi_mark & pol->mark.m) != pol->mark.v ||
++	#ifdef CONFIG_SBG_SKB_MARK
++	    (fl->flowi_zextmark & pol->zextmark.m) != pol->zextmark.v ||
++	#endif /* CONFIG_SBG_SKB_MARK */
+ 	    pol->type != type)
+ 		return ret;
+ 
+@@ -1015,6 +1030,12 @@
+ 				pol = NULL;
+ 				goto out;
+ 			}
++		#ifdef CONFIG_SBG_SKB_MARK
++			if ((sk->sk_mark & pol->zextmark.m) != pol->zextmark.v) {
++				pol = NULL;
++				goto out;
++			}
++		#endif /* CONFIG_SBG_SK_MARK */
+ 			err = security_xfrm_policy_lookup(pol->security,
+ 						      fl->flowi_secid,
+ 						      policy_to_flow_dir(dir));
+@@ -1122,6 +1143,9 @@
+ 		newp->lft = old->lft;
+ 		newp->curlft = old->curlft;
+ 		newp->mark = old->mark;
++	#ifdef CONFIG_SBG_SKB_MARK
++		newp->zextmark = old->zextmark;
++	#endif /* CONFIG_SBG_SKB_MARK */
+ 		newp->action = old->action;
+ 		newp->flags = old->flags;
+ 		newp->xfrm_nr = old->xfrm_nr;
+Index: linux-3.4.11/net/decnet/dn_route.c
+===================================================================
+--- linux-3.4.11.orig/net/decnet/dn_route.c	2012-09-15 06:18:55.000000000 +0800
++++ linux-3.4.11/net/decnet/dn_route.c	2017-01-26 15:17:10.139819796 +0800
+@@ -92,6 +92,10 @@
+ #include <net/dn_neigh.h>
+ #include <net/dn_fib.h>
+ 
++#ifdef CONFIG_SBG_SKB_MARK
++#include "zld/zld_cb_data.h"
++#endif /* CONFIG_SBG_SKB_MARK */
++
+ struct dn_rt_hash_bucket
+ {
+ 	struct dn_route __rcu *chain;
+@@ -292,6 +296,9 @@
+ 	return ((fl1->daddr ^ fl2->daddr) |
+ 		(fl1->saddr ^ fl2->saddr) |
+ 		(fl1->flowidn_mark ^ fl2->flowidn_mark) |
++	#ifdef CONFIG_SBG_SKB_MARK
++		(fl1->flowidn_zextmark ^ fl2->flowidn_zextmark) |
++	#endif /* CONFIG_SBG_SKB_MARK */
+ 		(fl1->flowidn_scope ^ fl2->flowidn_scope) |
+ 		(fl1->flowidn_oif ^ fl2->flowidn_oif) |
+ 		(fl1->flowidn_iif ^ fl2->flowidn_iif)) == 0;
+@@ -928,6 +935,9 @@
+ 		.saddr = oldflp->saddr,
+ 		.flowidn_scope = RT_SCOPE_UNIVERSE,
+ 		.flowidn_mark = oldflp->flowidn_mark,
++	#ifdef CONFIG_SBG_SKB_MARK
++		.flowidn_zextmark = oldflp->flowidn_zextmark,
++	#endif /* CONFIG_SBG_SKB_MARK */
+ 		.flowidn_iif = init_net.loopback_dev->ifindex,
+ 		.flowidn_oif = oldflp->flowidn_oif,
+ 	};
+@@ -944,9 +954,15 @@
+ 	if (decnet_debug_level & 16)
+ 		printk(KERN_DEBUG
+ 		       "dn_route_output_slow: dst=%04x src=%04x mark=%d"
++		#ifdef CONFIG_SBG_SKB_MARK
++			" mark=%d"
++		#endif /* CONFIG_SBG_SKB_MARK */
+ 		       " iif=%d oif=%d\n", le16_to_cpu(oldflp->daddr),
+ 		       le16_to_cpu(oldflp->saddr),
+ 		       oldflp->flowidn_mark, init_net.loopback_dev->ifindex,
++		#ifdef CONFIG_SBG_SKB_MARK
++		       oldflp->flowidn_mark, oldflp->flowidn_zextmark, init_net.loopback_dev->ifindex,
++		#endif /* CONFIG_SBG_SKB_MARK */
+ 		       oldflp->flowidn_oif);
+ 
+ 	/* If we have an output interface, verify its a DECnet device */
+@@ -1153,6 +1169,9 @@
+ 	rt->fld.flowidn_oif  = oldflp->flowidn_oif;
+ 	rt->fld.flowidn_iif  = 0;
+ 	rt->fld.flowidn_mark = oldflp->flowidn_mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	rt->fld.flowidn_zextmark = oldflp->flowidn_zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 
+ 	rt->rt_saddr      = fld.saddr;
+ 	rt->rt_daddr      = fld.daddr;
+@@ -1219,6 +1238,9 @@
+ 			if ((flp->daddr == rt->fld.daddr) &&
+ 			    (flp->saddr == rt->fld.saddr) &&
+ 			    (flp->flowidn_mark == rt->fld.flowidn_mark) &&
++			#ifdef CONFIG_SBG_SKB_MARK
++			    (flp->flowidn_zextmark == rt->fld.flowidn_zextmark) &&
++			#endif /* CONFIG_SBG_SKB_MARK */
+ 			    dn_is_output_route(rt) &&
+ 			    (rt->fld.flowidn_oif == flp->flowidn_oif)) {
+ 				dst_use(&rt->dst, jiffies);
+@@ -1284,6 +1306,9 @@
+ 		.saddr = cb->src,
+ 		.flowidn_scope = RT_SCOPE_UNIVERSE,
+ 		.flowidn_mark = skb->mark,
++	#ifdef CONFIG_SBG_SKB_MARK
++		.flowidn_zextmark = ZLD_CB_DATA(skb)->zextmark,
++	#endif /* CONFIG_SBG_SKB_MARK */
+ 		.flowidn_iif = skb->dev->ifindex,
+ 	};
+ 	struct dn_fib_res res = { .fi = NULL, .type = RTN_UNREACHABLE };
+@@ -1433,6 +1458,9 @@
+ 	rt->fld.flowidn_oif  = 0;
+ 	rt->fld.flowidn_iif  = in_dev->ifindex;
+ 	rt->fld.flowidn_mark = fld.flowidn_mark;
++#ifdef CONFIG_SBG_SKB_MARK
++	rt->fld.flowidn_zextmark = fld.flowidn_zextmark;
++#endif /* CONFIG_SBG_SKB_MARK */
+ 
+ 	dst_set_neighbour(&rt->dst, neigh);
+ 	rt->dst.lastuse = jiffies;
+@@ -1502,6 +1530,9 @@
+ 		    (rt->fld.daddr == cb->dst) &&
+ 		    (rt->fld.flowidn_oif == 0) &&
+ 		    (rt->fld.flowidn_mark == skb->mark) &&
++		#ifdef CONFIG_SBG_SKB_MARK
++		    (rt->fld.flowidn_zextmark == ZLD_CB_DATA(skb)->zextmark) &&
++		#endif /* CONFIG_SBG_SKB_MARK */
+ 		    (rt->fld.flowidn_iif == cb->iif)) {
+ 			dst_use(&rt->dst, jiffies);
+ 			rcu_read_unlock();

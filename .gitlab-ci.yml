@@ -1,0 +1,622 @@
+stages:
+  - build
+  - test
+  - merge
+
+VMG3926-B10A_Generic_build-it:
+  stage: build
+  only: 
+    refs:
+      - master
+      - develop
+      - /^feature-.*$/
+      - /^bugfix-.*$/
+  except:
+    - schedules
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+    CI_DEBUG_TRACE: "false"
+
+  before_script:
+    - pwd
+    - cd ..
+    - cp -f /builds/checkout.sh .
+    - ./checkout.sh ${CI_PROJECT_NAME} git@btc-git.zyxel.com:opal/${CI_PROJECT_NAME}.git
+    - ./checkout.sh opal_auto git@btc-git.zyxel.com:opal/opal_auto.git
+    - cd  ${CI_PROJECT_NAME}
+  script:
+    - env
+    - pwd
+    - ls -al
+    - make P=VMG3926-B10A_Generic $makeoption
+    - git fetch
+    - git checkout ${CI_COMMIT_SHA}
+    - sh scripts/acts_verify.sh VMG3926-B10A_Generic 1
+    - make P=VMG3926-B10A_Generic
+    - if [ "${CI_COMMIT_REF_NAME}" == "develop" ]; then
+        mkdir -p /mnt/build/VMG3926-B10A_Generic/develop/${CI_COMMIT_SHA};
+        cp -rf bin/*/zyxel/* /mnt/build/VMG3926-B10A_Generic/develop/${CI_COMMIT_SHA};
+        cp -rf /mnt/build/VMG3926-B10A_Generic/develop/${CI_COMMIT_SHA}/ras.bin /mnt/build/VMG3926-B10A_Generic/develop/;
+      else
+        mkdir -p /mnt/build/VMG3926-B10A_Generic/${CI_COMMIT_SHA};
+        cp -rf bin/*/zyxel/* /mnt/build/VMG3926-B10A_Generic/${CI_COMMIT_SHA};
+        cp -rf /mnt/build/VMG3926-B10A_Generic/${CI_COMMIT_SHA}/ras.bin /mnt/build/VMG3926-B10A_Generic/;
+      fi
+  artifacts:
+    paths:
+      - pass2it
+
+  tags:
+    - tagsBuildVMG3926-it
+
+VMG3926-B10A_Generic_test-it:
+  stage: test
+  only: 
+    refs:
+      - master
+      - develop
+      - /^feature-.*$/
+      - /^bugfix-.*$/
+  except:
+    - schedules
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  script:
+    - env
+    - pwd
+    - cd /home/acts/ACTS_Commands
+    - if [ "${CI_COMMIT_REF_NAME}" == "develop" ]; then    
+        /home/acts/ACTS_Commands/Start_acts_autotest.tcl "" http://172.21.83.106:8090/VMG3926-B10A_Generic/develop/$CI_COMMIT_SHA/ras.bin Prime $GITLAB_USER_EMAIL;
+      else
+        /home/acts/ACTS_Commands/Start_acts_autotest.tcl "" http://172.21.83.106:8090/VMG3926-B10A_Generic/$CI_COMMIT_SHA/ras.bin Prime $GITLAB_USER_EMAIL;
+      fi
+  tags:
+    - tagsTestVMG3926-it
+    
+VMG3926-B10A_Generic_acts-verify-it:
+  stage: test
+  only: 
+    refs:
+      - /^feature-.*$/
+  except:
+    - schedules
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  script:
+    - env
+    - pwd
+    - cp pass2it /tmp/${CI_COMMIT_SHA} 
+    - cd /home/acts/ACTS_Commands
+    - /home/acts/ACTS_Commands/acts_auto_ci.sh -f http://172.21.83.106:8090/VMG3926-B10A_Generic/$CI_COMMIT_SHA/ras.bin
+
+  tags:
+    - tagsTestVMG3926-acts-verify-it
+
+
+VMG3926-B10A_Generic_build-dev-cit:
+  stage: build
+  only: 
+    refs:
+      - develop
+      - schedules
+    variables:
+      - $schedule_vmg == "develop"
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+    CI_DEBUG_TRACE: "false"
+    
+
+  before_script:
+      - pwd
+      - cd ..
+      - cp -f /builds/checkout.sh .
+      - ./checkout.sh ${CI_PROJECT_NAME} git@btc-git.zyxel.com:opal/${CI_PROJECT_NAME}.git
+      - cd  ${CI_PROJECT_NAME}
+  script:
+      - env
+      - pwd
+      - make P=VMG3926-B10A_Generic distclean
+      - git fetch
+      - git checkout ${CI_COMMIT_SHA}
+      - sh scripts/acts_verify.sh VMG3926-B10A_Generic 0
+      - make P=VMG3926-B10A_Generic
+      - mkdir -p /mnt/build/VMG3926-B10A_Generic/CIT/${CI_COMMIT_SHA}
+      - cp -rf bin/*/zyxel/* /mnt/build/VMG3926-B10A_Generic/CIT/${CI_COMMIT_SHA}
+      - cp -rf /mnt/build/VMG3926-B10A_Generic/CIT/${CI_COMMIT_SHA}/ras.bin /mnt/build/VMG3926-B10A_Generic/
+
+  tags:
+    - tagsBuildVMG3926-dev-cit
+
+VMG3926-B10A_Generic_test-dev-cit:
+  stage: test
+  only: 
+    refs:
+      - develop
+      - schedules
+    variables:
+      - $schedule_vmg == "develop"
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  script:
+    - env
+    - pwd
+    - cd /home/acts/ACTS_Commands
+    - /home/acts/ACTS_Commands/Start_acts_autotest.tcl "site_1" http://172.21.83.106:8090/VMG3926-B10A_Generic/CIT/$CI_COMMIT_SHA/ras.bin Daily_BAT
+
+  tags:
+    - tagsTestVMG3926-dev-cit
+    
+VMG3926-B10A_Generic_test-dev-cit-tr69:
+  stage: test
+  only: 
+    refs:
+      - develop
+      - schedules
+    variables:
+      - $schedule_vmg == "develop"
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  script:
+    - env
+    - pwd
+    - cd /home/acts/ACTS_Commands
+    - /home/acts/ACTS_Commands/Start_acts_autotest.tcl "site_2" http://172.21.83.106:8090/VMG3926-B10A_Generic/CIT/$CI_COMMIT_SHA/ras.bin Daily_TR069
+
+  tags:
+    - tagsTestVMG3926-dev-cit
+    
+VMG3926-B10A_Generic_merge-dev-cit:
+  stage: merge
+  only: 
+    refs:
+      - develop
+      - schedules
+    variables:
+      - $schedule_vmg == "develop"
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+    CI_DEBUG_TRACE: "false"
+  script:
+    - env
+    - cp -f /builds/merge.sh .
+    - ./merge.sh ${CI_PROJECT_NAME} git@btc-git.zyxel.com:opal/${CI_PROJECT_NAME}.git $CI_COMMIT_SHA
+  when: on_success
+
+  tags:
+    - tagsMergeVMG3926-dev-cit
+
+VMG3926-B10A_Generic_build-mas-cit:
+  stage: build
+  only: 
+    refs:
+      - master
+      - schedules
+    variables:
+      - $schedule_vmg == "master"
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+    CI_DEBUG_TRACE: "false"
+    
+
+  before_script:
+      - pwd
+      - cd ..
+      - cp -f /builds/checkout.sh .
+      - ./checkout.sh ${CI_PROJECT_NAME} git@btc-git.zyxel.com:opal/${CI_PROJECT_NAME}.git
+      - cd  ${CI_PROJECT_NAME}
+  script:
+      - env
+      - pwd
+      - make P=VMG3926-B10A_Generic distclean
+      - git fetch
+      - git checkout ${CI_COMMIT_SHA}
+      - sh scripts/acts_verify.sh VMG3926-B10A_Generic 0
+      - make P=VMG3926-B10A_Generic
+      - mkdir -p /mnt/build/VMG3926-B10A_Generic/${CI_COMMIT_SHA}
+      - cp -rf bin/*/zyxel/* /mnt/build/VMG3926-B10A_Generic/${CI_COMMIT_SHA}
+      - cp -rf /mnt/build/VMG3926-B10A_Generic/${CI_COMMIT_SHA}/ras.bin /mnt/build/VMG3926-B10A_Generic/
+
+  tags:
+    - tagsBuildVMG3926-mas-cit
+
+VMG3926-B10A_Generic_test-mas-cit:
+  stage: test
+  only: 
+    refs:
+      - master
+      - schedules
+    variables:
+      - $schedule_vmg == "master"
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  script:
+    - env
+    - pwd
+    - cd /home/acts/ACTS_Commands
+    - /home/acts/ACTS_Commands/Start_acts_autotest.tcl "site_3" http://172.21.83.106:8090/VMG3926-B10A_Generic/$CI_COMMIT_SHA/ras.bin Daily_BAT
+
+  tags:
+    - tagsTestVMG3926-mas-cit
+    
+VMG8825-B50B_Generic_build-it:
+  stage: build
+  only: 
+    refs:
+      - master
+      - develop
+      - /^feature-.*$/
+      - /^bugfix-.*$/
+  except:
+    - schedules
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+    CI_DEBUG_TRACE: "false"
+
+  before_script:
+      - pwd
+      - cd ..
+      - cp -f /builds/checkout.sh .
+      - ./checkout.sh ${CI_PROJECT_NAME} git@btc-git.zyxel.com:opal/${CI_PROJECT_NAME}.git
+      - cd  ${CI_PROJECT_NAME}
+  script:
+      - env
+      - pwd
+      - ls -al
+      - make P=VMG8825-B50B_Generic $makeoption
+      - git fetch
+      - git checkout ${CI_COMMIT_SHA}
+      - sh scripts/acts_verify.sh VMG8825-B50B_Generic 0
+      - make P=VMG8825-B50B_Generic
+      - if [ "${CI_COMMIT_REF_NAME}" == "develop" ]; then
+          mkdir -p /mnt/build/VMG8825-B50B_Generic/develop/${CI_COMMIT_SHA};
+          cp -rf bin/*/zyxel/* /mnt/build/VMG8825-B50B_Generic/develop/${CI_COMMIT_SHA};
+          cp -rf /mnt/build/VMG8825-B50B_Generic/develop/${CI_COMMIT_SHA}/ras.bin /mnt/build/VMG8825-B50B_Generic/develop/;
+        else
+          mkdir -p /mnt/build/VMG8825-B50B_Generic/${CI_COMMIT_SHA};
+          cp -rf bin/*/zyxel/* /mnt/build/VMG8825-B50B_Generic/${CI_COMMIT_SHA};
+          cp -rf /mnt/build/VMG8825-B50B_Generic/${CI_COMMIT_SHA}/ras.bin /mnt/build/VMG8825-B50B_Generic/;
+        fi
+
+  tags:
+    - tagsBuildVMG8825-B50B-it
+
+VMG8825-T50K_Generic_build-it:
+  stage: build
+  only: 
+    refs:
+      - master
+      - develop
+      - /^feature-.*$/
+      - /^bugfix-.*$/
+  except:
+    - schedules
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+    CI_DEBUG_TRACE: "false"
+
+  before_script:
+      - pwd
+      - cd ..
+      - cp -f /builds/checkout.sh .
+      - ./checkout.sh ${CI_PROJECT_NAME} git@btc-git.zyxel.com:opal/${CI_PROJECT_NAME}.git
+      - cd  ${CI_PROJECT_NAME}
+  script:
+      - env
+      - pwd
+      - ls -al
+      - make P=VMG8825-T50K_Generic $makeoption
+      - git fetch
+      - git checkout ${CI_COMMIT_SHA}
+      - make P=VMG8825-T50K_Generic
+      - if [ "${CI_COMMIT_REF_NAME}" == "develop" ]; then
+          mkdir -p /mnt/build/VMG8825-T50K_Generic/develop/${CI_COMMIT_SHA};
+          cp -rf bin/*/zyxel/* /mnt/build/VMG8825-T50K_Generic/develop/${CI_COMMIT_SHA};
+          cp -rf /mnt/build/VMG8825-T50K_Generic/develop/${CI_COMMIT_SHA}/ras.bin /mnt/build/VMG8825-T50K_Generic/develop/;
+        else
+          mkdir -p /mnt/build/VMG8825-T50K_Generic/${CI_COMMIT_SHA};
+          cp -rf bin/*/zyxel/* /mnt/build/VMG8825-T50K_Generic/${CI_COMMIT_SHA};
+          cp -rf /mnt/build/VMG8825-T50K_Generic/${CI_COMMIT_SHA}/ras.bin /mnt/build/VMG8825-T50K_Generic/;
+        fi
+  tags:
+    - tagsBuildVMG8825-T50K-it
+
+VMG8825-B50B_Generic_502L07_build-it:
+  stage: build
+  only: 
+    refs:
+      - master
+      - develop
+      - /^feature-.*$/
+      - /^bugfix-.*$/
+  except:
+    - schedules
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+    CI_DEBUG_TRACE: "false"
+
+  before_script:
+      - pwd
+      - cd ..
+      - cp -f /builds/checkout.sh .
+      - ./checkout.sh ${CI_PROJECT_NAME} git@btc-git.zyxel.com:opal/${CI_PROJECT_NAME}.git
+      - cd  ${CI_PROJECT_NAME}
+  script:
+      - env
+      - pwd
+      - ls -al
+      - make P=VMG8825-B50B_Generic_502L07 $makeoption
+      - git fetch
+      - git checkout ${CI_COMMIT_SHA}
+      - sh scripts/acts_verify.sh VMG8825-B50B_Generic_502L07 0
+      - make P=VMG8825-B50B_Generic_502L07
+      - if [ "${CI_COMMIT_REF_NAME}" == "develop" ]; then
+          mkdir -p /mnt/build/VMG8825-B50B_Generic_502L07/develop/${CI_COMMIT_SHA};
+          cp -rf bin/*/zyxel/* /mnt/build/VMG8825-B50B_Generic_502L07/develop/${CI_COMMIT_SHA};
+          cp -rf /mnt/build/VMG8825-B50B_Generic_502L07/develop/${CI_COMMIT_SHA}/ras.bin /mnt/build/VMG8825-B50B_Generic_502L07/develop/;
+        else
+          mkdir -p /mnt/build/VMG8825-B50B_Generic_502L07/${CI_COMMIT_SHA};
+          cp -rf bin/*/zyxel/* /mnt/build/VMG8825-B50B_Generic_502L07/${CI_COMMIT_SHA};
+          cp -rf /mnt/build/VMG8825-B50B_Generic_502L07/${CI_COMMIT_SHA}/ras.bin /mnt/build/VMG8825-B50B_Generic_502L07/;
+        fi
+  tags:
+    - tagsBuildVMG8825-B50B_Generic_502L07-it
+
+VMG8825_B50B_Generic_build-dev-cit:
+  stage: build
+  only: 
+    refs:
+      - develop
+      - schedules
+    variables:
+      - $schedule_vmg == "VMG8825"
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+    CI_DEBUG_TRACE: "false"
+    
+
+  before_script:
+      - pwd
+      - cd ..
+      - cp -f /builds/checkout.sh .
+      - ./checkout.sh ${CI_PROJECT_NAME} git@btc-git.zyxel.com:opal/${CI_PROJECT_NAME}.git
+      - cd  ${CI_PROJECT_NAME}
+  script:
+      - env
+      - pwd
+      - make P=VMG8825-B50B_Generic distclean
+      - git fetch
+      - git checkout ${CI_COMMIT_SHA}
+      - sh scripts/acts_verify.sh VMG8825-B50B_Generic 0
+      - make P=VMG8825-B50B_Generic
+      - mkdir -p /mnt/build/VMG8825-B50B_Generic/CIT/${CI_COMMIT_SHA}
+      - cp -rf bin/*/zyxel/* /mnt/build/VMG8825-B50B_Generic/CIT/${CI_COMMIT_SHA}
+      - cp -rf /mnt/build/VMG8825-B50B_Generic/CIT/${CI_COMMIT_SHA}/ras.bin /mnt/build/VMG8825-B50B_Generic/
+  tags:
+    - tagsBuildVMG8825-dev-cit
+    
+VMG8825-B50B_Generic_test-dev-cit:
+  stage: test
+  only: 
+    refs:
+      - develop
+      - schedules
+    variables:
+      - $schedule_vmg == "VMG8825"
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  script:
+    - env
+    - pwd
+    - cd /home/acts/ACTS_Commands
+    - /home/acts/ACTS_Commands/Start_acts_autotest.tcl "site_1" http://172.21.83.106:8090/VMG8825-B50B_Generic/CIT/$CI_COMMIT_SHA/ras.bin Daily_BAT
+
+  tags:
+    - tagsTestVMG8825-dev-cit
+    
+VMG8825-B50B_Generic_test-dev-cit-tr69:
+  stage: test
+  only: 
+    refs:
+      - develop
+      - schedules
+    variables:
+      - $schedule_vmg == "VMG8825"
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+  script:
+    - env
+    - pwd
+    - cd /home/acts/ACTS_Commands
+    - /home/acts/ACTS_Commands/Start_acts_autotest.tcl "site_2" http://172.21.83.106:8090/VMG8825-B50B_Generic/CIT/$CI_COMMIT_SHA/ras.bin Daily_TR069
+
+  tags:
+    - tagsTestVMG8825-dev-cit
+    
+DX5511-B0-cit:
+  stage: build
+  only: 
+    refs:
+      - BCM63158_502L06
+      - schedules
+    variables:
+      - $schedule_vmg == "DX5511"
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+    CI_DEBUG_TRACE: "false"
+
+  before_script:
+      - pwd
+      - cd ..
+      - cp -f /builds/checkout.sh .
+      - ./checkout.sh ${CI_PROJECT_NAME} git@btc-git.zyxel.com:opal/${CI_PROJECT_NAME}.git
+      - cd  ${CI_PROJECT_NAME}
+  script:
+      - env
+      - pwd
+      - ls -al
+      - make P=DX5511-B0 distclean
+      - git fetch
+      - git checkout ${CI_COMMIT_SHA}
+      - sh scripts/acts_verify.sh DX5511-B0 0
+      - make P=DX5511-B0
+      - mkdir -p /mnt/build/DX5511-B0/${CI_COMMIT_SHA}
+      - cp -rf bin/*/zyxel_pureUbi/* /mnt/build/DX5511-B0/${CI_COMMIT_SHA}
+      - cp -rf /mnt/build/DX5511-B0/${CI_COMMIT_SHA}/ras.bin /mnt/build/DX5511-B0/
+
+  tags:
+    - tagsBuildDX5511-B0-cit
+
+VMG4927-B50A_Generic-cit:
+  stage: build
+  only: 
+    refs:
+      - develop
+      - schedules
+    variables:
+      - $schedule_vmg == "VMG4927-B50A_Generic"
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+    CI_DEBUG_TRACE: "false"
+
+  before_script:
+      - pwd
+      - cd ..
+      - cp -f /builds/checkout.sh .
+      - ./checkout.sh ${CI_PROJECT_NAME} git@btc-git.zyxel.com:opal/${CI_PROJECT_NAME}.git
+      - cd  ${CI_PROJECT_NAME}
+  script:
+      - env
+      - pwd
+      - ls -al
+      - make P=VMG4927-B50A_Generic distclean
+      - git fetch
+      - git checkout ${CI_COMMIT_SHA}
+      - sh scripts/acts_verify.sh VMG4927-B50A_Generic 0
+      - make P=VMG4927-B50A_Generic
+      - mkdir -p /mnt/build/VMG4927-B50A_Generic/${CI_COMMIT_SHA}
+      - cp -rf bin/brcm963xx/zyxel/* /mnt/build/VMG4927-B50A_Generic/${CI_COMMIT_SHA}
+      - cp -rf /mnt/build/VMG4927-B50A_Generic/${CI_COMMIT_SHA}/ras.bin /mnt/build/VMG4927-B50A_Generic/
+
+  tags:
+    - tagsBuildVMG4927-B50A_Generic-cit
+    
+EX5510-B0_Generic-cit:
+  stage: build
+  only: 
+    refs:
+      - develop
+      - schedules
+    variables:
+      - $schedule_vmg == "EX5510-B0_Generic"
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+    CI_DEBUG_TRACE: "false"
+
+  before_script:
+      - pwd
+      - cd ..
+      - cp -f /builds/checkout.sh .
+      - ./checkout.sh ${CI_PROJECT_NAME} git@btc-git.zyxel.com:opal/${CI_PROJECT_NAME}.git
+      - cd  ${CI_PROJECT_NAME}
+  script:
+      - env
+      - pwd
+      - ls -al
+      - make P=EX5510-B0_Generic distclean
+      - git fetch
+      - git checkout ${CI_COMMIT_SHA}
+      - sh scripts/acts_verify.sh EX5510-B0_Generic 0
+      - make P=EX5510-B0_Generic
+      - mkdir -p /mnt/build/EX5510-B0_Generic/${CI_COMMIT_SHA}
+      - cp -rf bin/*/zyxel_pureUbi/* /mnt/build/EX5510-B0_Generic/${CI_COMMIT_SHA}
+      - cp -rf /mnt/build/EX5510-B0_Generic/${CI_COMMIT_SHA}/ras.bin /mnt/build/EX5510-B0_Generic/
+
+  tags:
+    - tagsBuildEX5510-B0_Generic-cit
+
+VMG8825-B50B_Generic_502L05-cit:
+  stage: build
+  only: 
+    refs:
+      - develop
+      - schedules
+    variables:
+      - $schedule_vmg == "VMG8825-B50B_Generic_502L05"
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+    CI_DEBUG_TRACE: "false"
+
+  before_script:
+      - pwd
+      - cd ..
+      - cp -f /builds/checkout.sh .
+      - ./checkout.sh ${CI_PROJECT_NAME} git@btc-git.zyxel.com:opal/${CI_PROJECT_NAME}.git
+      - cd  ${CI_PROJECT_NAME}
+  script:
+      - env
+      - pwd
+      - ls -al
+      - make P=VMG8825-B50B_Generic_502L05 distclean
+      - git fetch
+      - git checkout ${CI_COMMIT_SHA}
+      - sh scripts/acts_verify.sh VMG8825-B50B_Generic_502L05 0
+      - make P=VMG8825-B50B_Generic_502L05
+      - mkdir -p /mnt/build/VMG8825-B50B_Generic_502L05/${CI_COMMIT_SHA}
+      - cp -rf bin/*/zyxel/* /mnt/build/VMG8825-B50B_Generic_502L05/${CI_COMMIT_SHA}
+      - cp -rf /mnt/build/VMG8825-B50B_Generic_502L05/${CI_COMMIT_SHA}/ras.bin /mnt/build/VMG8825-B50B_Generic_502L05/
+
+  tags:
+    - tagsBuildVMG8825-B50B_Generic_502L05-cit
+
+PMG5817-T20A_Generic-build-it:
+  stage: build
+  only: 
+    refs:
+      - EN7528_Migrate_SDK
+  except:
+    - schedules
+  variables:
+    GIT_STRATEGY: none
+    GIT_CHECKOUT: "false"
+    CI_DEBUG_TRACE: "false"
+
+  before_script:
+      - pwd
+      - cd ..
+      - cp -f /builds/checkout.sh .
+      - ./checkout.sh ${CI_PROJECT_NAME} git@btc-git.zyxel.com:opal/${CI_PROJECT_NAME}.git
+      - cd  ${CI_PROJECT_NAME}
+  script:
+      - env
+      - pwd
+      - ls -al
+      - make P=PMG5817-T20A_Generic clean
+      - git fetch
+      - git checkout ${CI_COMMIT_SHA}
+      - sh scripts/acts_verify.sh PMG5817-T20A_Generic 0
+      - make P=PMG5817-T20A_Generic
+      - mkdir -p /mnt/build/PMG5817-T20A_Generic/${CI_COMMIT_SHA}
+      - cp -rf bin/*/zyxel/* /mnt/build/PMG5817-T20A_Generic/${CI_COMMIT_SHA}
+      - cp -rf /mnt/build/PMG5817-T20A_Generic/${CI_COMMIT_SHA}/ras.bin /mnt/build/PMG5817-T20A_Generic/
+
+  tags:
+    - tagsBuildEN7528_Migrate_SDK-it
